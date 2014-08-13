@@ -22,7 +22,7 @@ ofxKinectNui::ofxKinectNui(){
 	
 	bIsInited = false;
 	bIsOpened = false;
-	bIsNearmode = false;
+	bIsNearmode = true;
 	bIsMirror = true;
 	bGrabsVideo = false;
 	bGrabsDepth = false;
@@ -74,7 +74,7 @@ ofxKinectNui::~ofxKinectNui(){
 
 	bIsInited = false;
 	bIsOpened = false;
-	bIsNearmode = false;
+	bIsNearmode = true;
 	bIsMirror = true;
 	bGrabsVideo = false;
 	bGrabsDepth = false;
@@ -83,7 +83,7 @@ ofxKinectNui::~ofxKinectNui(){
 	bGrabsCalibratedVideo = false;
 	bIsFrameNew = false;
 	bIsFoundSkeleton = false;
-	bIsNearmode = false;
+	bIsNearmode = true;
 }
 
 //---------------------------------------------------------------------------
@@ -304,10 +304,10 @@ bool ofxKinectNui::init(bool grabVideo /*= true*/,
 		}
 	}
 
-    std::string Error = kinect.Initialize(dwFlags);
+    kinect.Initialize(dwFlags);
 
 	if(!kinect.IsInited()){
-		ofLog(OF_LOG_ERROR, "ofxKinectNui: Initialization failed." + Error );
+		ofLog(OF_LOG_ERROR, "ofxKinectNui: Initialization failed.");
 	}
 	
 	return kinect.IsInited();
@@ -321,7 +321,7 @@ bool ofxKinectNui::open(){
 	if(kinect.IsConnected() && !isOpened()){
 		if(isInited()){
 			if(!kinect.IsInited()){
-				init(bGrabsVideo, bGrabsDepth, bGrabsAudio, bGrabsLabel, bGrabsSkeleton, bGrabsCalibratedVideo, bGrabsLabelCv, mVideoImageType, mVideoResolution, mDepthResolution);
+				init(bGrabsVideo, bGrabsDepth, bGrabsLabel, bGrabsAudio, bGrabsLabel, bGrabsSkeleton, bGrabsLabelCv, mVideoImageType, mVideoResolution, mDepthResolution);
 			}
 		}
 		if(bGrabsVideo){
@@ -337,6 +337,8 @@ bool ofxKinectNui::open(){
 		if(bGrabsAudio){
 			kinect.AudioStream().Open();
 		}
+		
+		kinect.Skeleton().Enable(NUI_SKELETON_TRACKING_FLAG_ENABLE_SEATED_SUPPORT);
 
 		bIsOpened = true;
 		return true;
@@ -369,6 +371,13 @@ void ofxKinectNui::close(){
 		bIsOpened = false;
 		bIsFrameNew = false;
 	}
+}
+
+void ofxKinectNui::useSeatedSkeleton() {
+
+	kinect.Skeleton().Enable(NUI_SKELETON_TRACKING_FLAG_ENABLE_SEATED_SUPPORT);
+	kinect.Skeleton().Enable(NUI_SKELETON_TRACKING_FLAG_ENABLE_IN_NEAR_RANGE);
+
 }
 
 //---------------------------------------------------------------------------
@@ -432,9 +441,9 @@ void ofxKinectNui::update(UINT flag){
 		int w = depth.Width();
 		int h = depth.Height();
 
-		unsigned short* distancePixs = NULL;
-		unsigned char* labelPixs = NULL;
-		unsigned char* calibVideoPixs = NULL;
+		unsigned short* distancePixs;
+		unsigned char* labelPixs;
+		unsigned char* calibVideoPixs;
 		long* vpixs = NULL;
 
 		if(flag & UPDATE_FLAG_DISTANCE){
@@ -483,17 +492,19 @@ void ofxKinectNui::update(UINT flag){
 						memcpy(calibVideoPixs + depthIndex * mVideoBpp + i, &vbit, sizeof(char));
 					}
 				}
-				if(flag & UPDATE_FLAG_LABEL_CV){
-					for(int i = 0; i < KINECT_PLAYERS_INDEX_NUM; ++i){
-						unsigned char lb;
-						unsigned char* labelPixsCv = labelPixelsCv[i].getPixels();
-						if((i == 0 && playerLabel > 0) || (i > 0 && playerLabel == i)){
-							lb = 0xFF;
-							memcpy(labelPixsCv + depthIndex, &lb, sizeof(char));
-						}else{
-							lb = 0x00;
-							memcpy(labelPixsCv + depthIndex, &lb, sizeof(char));
-						}
+			}
+		}
+		if(flag & UPDATE_FLAG_LABEL_CV){
+			for(int i = 0; i < KINECT_PLAYERS_INDEX_NUM; ++i){
+				unsigned char lb;
+				unsigned char* labelPixsCv = labelPixelsCv[i].getPixels();
+				for(int j = 0; j < w * h; j++){
+					if((i == 0 && playerLabel > 0) || (i > 0 && playerLabel == i)){
+						lb = 0xFF;
+						memcpy(labelPixsCv + j, &lb, sizeof(char));
+					}else{
+						lb = 0x00;
+						memcpy(labelPixsCv + j, &lb, sizeof(char));
 					}
 				}
 			}
@@ -608,6 +619,7 @@ void ofxKinectNui::drawSkeleton(){
 			continue;
 		}
 		skeletonDraw_->draw(skeletonPoints[i]);
+		if (i==3) break;
  	}
 }
 /**

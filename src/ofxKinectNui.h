@@ -108,6 +108,8 @@ public:
 	void update(){update(UPDATE_FLAG_ALL);}
 	void update(UINT flag);
 
+	void useSeatedSkeleton();
+
 	void setVideoDrawer(IDrawPixels* drawer);
 	void setDepthDrawer(IDrawPixels* drawer);
 	void setLabelDrawer(IDrawPixels* drawer);
